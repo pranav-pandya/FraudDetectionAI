@@ -1,0 +1,308 @@
+FraudSight AI: Build a Smart Detection & Advisory Engine
+
+Overview
+The banking sector processes thousands of transactions daily, making fraud detection and intervention a mission-critical task. This hackathon challenges you to rebuild an intelligent AI-driven Fraud Detection & Advisory System from scratch using only the provided data directory and Python library installation requirements.
+You are tasked with building an end-to-end AI-driven fraud detection and advisory system that uses:
+•	Unsupervised ML for anomaly detection
+•	Supervised ML for fraud classification
+•	GenAI for summarizing and advising
+•	Streamlit UI for visual tracking and decision-making
+
+Provided Assets
+You are only provided with the following:
+data/ directory containing:
+•	training.csv – Supervised fraud training dataset (for classification)
+•	branch_rules.pdf – PDF with operational rules and branch contact information
+•	regions/ – Folder with 4 regional transaction files: East.csv, West.csv, North.csv, South.csv
+•	installations.txt – Required Python package list
+•	UI screenshots and target project structure diagram (for reference)
+You must recreate the entire project from scratch to match the desired functionality and structure. Your submission must include all modules, core logic, and proper ML model integrations.
+
+File Structure:
+
+ 
+Input Data Explanation:
+
+1. data/training.csv:
+txn_id: Unique transaction ID
+account_no: Account identifier
+region: Region of the branch
+location: Indian state names
+txn_time: Timestamp of transaction
+branch_code: Branch name (e.g., Indira Nagar)
+txn_type: Type of transaction (NEFT, UPI, MANDATE etc)
+amount: Transaction amount (numeric)
+status: Transaction status (Success, Failed)
+device_type: Device used (web, mobile, etc.)
+customer_type: Individual/corporate
+time_stamp: datetime
+fraud_type: Type
+
+2. data/regions/*.csv (4 regional files):
+Same schema as training.csv except fraud_type is not present. These are test files where your model must detect and classify frauds.
+
+3. data/branch_rules.pdf:
+Contains:
+•	Rule-based fraud indicators per region/branch
+•	Contact person and other related info for each branch
+•	Use your own Mail IDs.
+Your Goal: 
+•	Develop the entire system from scratch using the provided input files.
+•	All modules and functions listed below must be implemented. You may choose the best-fit ML algorithms (e.g., Isolation Forest, Z-score, IQR for anomalies; Logistic Regression, Random Forest, XGBoost for classification).
+
+Mandatory Modules to Implement:
+Your solution must recreate the following modules and functions. You are free to use any ML algorithm (e.g., Isolation Forest, DBSCAN, Logistic Regression, XGBoost) as long as it fits the use case.
+main.py:
+•	Sidebar: Region CSV selector
+•	Streamlit app with 3 tabs:
+1.	ML Pipeline Tab – Load file → Detect anomalies → Predict fraud → Generate summary
+•	Load CSV
+•	Show anomalies
+•	Show classified frauds
+•	Show top branches with fraud count
+•	Show region summary (from GenAI)
+1.	Action Advisor Tab – Select location → Generate alert email using Gemini
+•	Show advisory email draft
+•	Send email to concerned branch (via extracted email from PDF)
+1.	Dashboard Tab – Show regional distribution (charts + map)
+•	Streamlit UI Features: Your Streamlit app should include:
+
+train_models/train_anomaly_model.py:
+Function: train_and_save_anomaly_model ()-> None
+Train an unsupervised anomaly detection model using transaction data from data/training.csv to identify suspicious behavior patterns.
+Tasks to Perform:
+•	Load and Preprocess the Data
+•	Read the dataset from data/training.csv.
+•	Extract useful features.
+•	Model Selection and Training
+•	Choose a suitable unsupervised anomaly detection algorithm such as: Isolation-based methods, Statistical thresholding (e.g., Z-score, IQR), Clustering-based anomaly detection
+•	Train the model using the selected features.
+•	Save the trained model and related components to: models/anomaly_model.pkl
+
+train_models/anomaly_detector.py:
+Functions: def run_anomaly_detection(df: pd.DataFrame) -> pd.DataFrame:
+•	Load the saved anomaly model and detect anomalies with the selected data/region/* transaction DataFrame from UI.
+•	Save final output to: output/anomaly_output.csv
+•	Return DataFrame with column: 'is_anomaly' = True/False
+
+train_models/train_classifier.py:
+Function: train_and_save_model() -> None
+You are required to implement and train a supervised machine learning model using the dataset data/training.csv.
+This module should:
+•	Preprocess the data (handle categorical encoding, missing values if any, etc.)
+•	Perform a train-test split (e.g., 80-20)
+•	Train a supervised model such as: Logistic Regression, Random Forest, XGBoost Or any other classifier of your choice
+Save the following artifacts:
+•	Trained model → models/fraud_classifier.pkl
+•	Encoder (e.g., OneHotEncoder / LabelEncoder / ColumnTransformer) → models/encoder.pkl
+This step is critical for the inference module to work consistently. The encoding logic used here must exactly match the one used during prediction.
+
+train_models/fraud_classifier.py:
+Function: run_fraud_classification(df: pd.DataFrame) -> pd.DataFrame
+This module takes a test dataframe (from any regions/*.csv file), uses the previously trained model and encoder, and returns the classification results.
+It must:
+•	Apply the same encoding pipeline that was saved during training (encoder.pkl)
+•	Load the trained model from models/fraud_classifier.pkl
+•	Predict and return the following columns:
+predicted_fraud: Binary fraud prediction (0 = Genuine, 1 = Fraudulent)
+fraud_type: A fraud category based on transaction pattern or type (e.g., Suspicious Mandate, UPI Spike, etc.)
+
+Returns updated dataframe with predictions.
+Save output to output/classified_frauds.csv.
+
+utils/file_loader.py
+Function: def load_transaction_csv(path: str) -> pd.DataFrame: Loads and returns a transaction CSV as dataframe.
+
+utils/aggregator.py (Optional, to minimize the API token usage recommended to use this approach - By sending the aggregate value as Dictionary/JSON in Prompt):
+Function: def group_fraud_summary(df: pd.DataFrame) -> pd.DataFrame:
+•	Aggregates fraud count per branch and region.
+•	Return counts of predicted fraud by fraud_type.
+•	Used for GenAI prompt preparation and regional dashboards.
+
+utils/geo_mapper.py:
+Function: def map_locations_to_coordinates(df: pd.DataFrame) -> pd.DataFrame: 
+•	Maps branches to geo-coordinates for fraud mapping visualization.
+•	Add latitude/longitude to states or branches using static dictionary.
+•	Used for Pydeck map plotting.
+
+utils/send_mail.py:
+Function: def send_advisory_email(branch: str, content: str) -> None:
+Parses `branch_rules.pdf` to extract necessary details like name & other info for the given branch and sends advisory.
+Use: smtplib, PyMuPDF (fitz)
+Sender: mail@gmail.com with app password
+store the mail details in .env file
+
+utils/pdf_reader.py:
+Function: def extract_rules_from_pdf(pdf_path: str) -> List[str]: Extract text lines from each page in 'branch_rules.pdf'
+
+utils/similarity_search.py:
+Function: def get_matched_advisory_section(location: str) -> tuple[str, str, str]: Use SentenceTransformer + FAISS to return the closest matching data as tuple with (matched state, section text & escalation_info).
+
+Note: Use different approach other than chaining with langchain. Recommending to use direct SDK calls (google-generativeai).
+
+GenAI/location_summary_generator.py
+Function: generate_region_summary(region_name: str, df: pd.DataFrame, api_key: str) -> str
+Purpose:
+Generate a human-readable executive summary of fraud activity in a selected region using Google Gemini.
+Expected Input:
+•	region_name: Name of the region (e.g., "East", "West")
+•	df: DataFrame filtered for that region (from classified fraud output)
+•	api_key: Gemini API key (students must pass this securely)
+Core Requirements:
+Summarize:
+•	Top branches with high fraud counts
+•	Types of frauds prevalent in the region
+•	Device/txn_type trends or suspicious behavior
+•	Add 2–3 concrete example transactions in the prompt
+•	Ensure the prompt sent to Gemini is structured and concise
+•	Make the output suitable for inclusion in reports
+Output:
+A formatted string of the summary.
+Save this summary to: output/region_summary.txt
+
+Note: Use different approach other than chaining with langchain. Recommending to use direct SDK calls (google-generativeai).
+
+GenAI/fraud_mail_generator.py
+Function: generate_advisory_email(location: str, df: pd.DataFrame, api_key: str) -> str
+Purpose:
+Generate a formal advisory email in markdown format using Gemini AI, intended to notify regional or branch authorities of detected frauds.
+Expected Input:
+•	location: The branch or region (used in greeting and content)
+•	df: DataFrame containing relevant fraud transactions for that location
+•	api_key: Gemini API key
+Core Requirements:
+Summarize key issues in a business-formal tone
+Get the rules and contact details from the data/branch_rules.pdf using cosine similarity
+Mention:
+•	Total fraud count
+•	Patterns (e.g., high UPI fraud, failed transactions from mobile)
+•	Suggested action (e.g., internal audit, customer verification)
+Use markdown structure for:
+•	Greeting
+•	Problem summary
+•	Call to action
+•	Signature (e.g., "Fraud Intelligence System")
+Output:
+A string containing the markdown email content.
+Save as: output/fraud_action_advice.csv With columns: branch, region, advisory_content
+
+Note: 
+•	Your Gemini prompts must be concise, well-structured, and backed by insights from the dataset.
+•	Avoid generic summaries. Focus on region-specific insights to ensure your GenAI responses are actionable and personalized.
+•	You may use the Gemini Pro (text) model or Gemini Flash (faster inference) or any API depending on your quota.
+•	If using Gemini API free tier, suggesting using multiple keys for each API calls.
+
+Expected Output Files
+All outputs must be saved to the output/ directory:
+anomaly_output.csv: Output from anomaly detection module
+classified_frauds.csv: Output from fraud classification module
+region_summary.txt : GenAI-generated region fraud summary
+fraud_action_advice.csv: Email drafts per branch
+
+Architechture:
+ 
+
+Commands to Create a Google Gemini API Key
+Open your web browser.
+•	Launch any browser (e.g., Chrome, Firefox) on your computer.
+Go to Google AI Studio.
+•	In the address bar, type aistudio.google.com and press Enter.
+Sign in to your Google account.
+•	Click the "Sign In" button in the top-right corner.
+•	Enter your Google email and password, then click "Next" to log in.
+•	If you don’t have an account, click "Create Account" and follow the prompts to make one.
+Navigate to the API Key section.
+•	On the Google AI Studio homepage, look at the left sidebar.
+•	Click on "Get API Key" (usually near the top-left corner).
+Create a new API key.
+•	In the API Key section, click the "Create API Key" button.
+•	A pop-up will appear—select "Create API Key in new project" (or choose an existing project if you have one).
+•	Click "Create" to generate the key.
+Copy the generated API key.
+•	Once the key is created, it will appear on the screen.
+•	Click the "Copy" button next to the key (or highlight it and press Ctrl+C/Command+C).
+•	Save the key in a secure place (e.g., a text file or password manager) because it won’t be shown again.
+Implementation Explanation:
+•	Before executing the main.py, enter the Gemini API key in the .env file.
+•	Open the main.py integrated terminal.
+•	check the path it in the Project directory, if not use cd command to navigate.
+•	To install required packages, run pip install -r installation.txt in terminal.
+•	Use python3 -m streamlit run main.py to execute the application, then you will get the pop-up window below, click the assigned port (Open in Browser) which will navigate to streamlit application window.
+
+•	IMPORTANT: Before you are running testcases make sure your Gemini API free tier is not exhausted.
+•	To check the testcases, you can use python3 -W ignore -m pytest tests.py -v (check the directory it should be Project directory)
+Sample Output:
+This image will be the first page to be loaded when streamlit gets started.
+ 
+In the sidebar, create a drop_down button with files form data/region directory.
+ 
+Let's say, East_Region is selected. In Tab-1: ML Pipeline - First anomaly detection output should be loaded.
+ 
+At same Tab-1 below, the fraud detection output must be displayed.
+ 
+At same tab-1, at bottom need Gemini Summary with bar chart to be displayed.
+ 
+The below image is the gemini summary explanation example.
+ 
+The next image is Tab-2: Action Advisor - The locations within the selected region must be displayed in dropdown.
+ 
+ 
+Let's we select Assam region, we need to frame a professional mail to with the content from data/branch_rules.pdf
+ 
+Complete Mail Template Example:
+Subject: Advisory on Recent Fraud Incidents – Jharkhand Region
+
+Dear Branch Operations Head, Jharkhand Region,
+
+This email constitutes a formal fraud incident report and action advisory from the Fraud Intelligence Team. Our analysis reveals a cluster of fraudulent activities impacting the Jharkhand region, despite a geographical match to the Uttar Pradesh State Advisory.
+
+A total of 20 branches have been affected by these incidents, involving 1 incorrect account activation linked to duplicate mobile number fraud (potentially linked to Aadhaar compromise), 12 legitimate account activations, and 1 mandate violation.
+
+The identified fraud type is duplicate mobile number fraud, potentially linked to Aadhaar data misuse. This highlights a critical vulnerability in our current account activation processes. To mitigate future occurrences, the following policy actions **must** be implemented immediately:
+
+1. **Mandatory Mobile-Aadhaar Sync Check:** Before account activation, a comprehensive check for mobile-Aadhaar synchronization is mandatory. Any discrepancies must be investigated thoroughly before proceeding.
+
+2. **Restriction on Agent-Assisted Mobile Linking:** Agent-assisted portals for mobile linking must be disabled immediately. All mobile number updates should be conducted directly by the customer via secure channels.
+
+3. **Dual OTP Authentication:** Implement a dual OTP authentication process for all mobile number changes. An OTP should be sent to both the existing and the new registered mobile number to ensure confirmation.
+
+
+In addition to policy changes, the following operational guidelines must be adhered to:
+
+* Maintain a detailed log of all mobile number change attempts at the district level.
+* Immediately alert the fraud desk if a mobile number is reused more than twice across multiple account activation requests.
+
+Failure to implement these policies and guidelines will result in further escalations. Regional action is required within 48 hours.
+
+For any queries or escalations, please contact:
+Name: Ankit Tyagi
+Role: Identity Verification Specialist
+SLA: 48 Hours
+
+Sincerely,
+The Fraud Intelligence Team
+
+Tab-3: Dashboard with location wise fraud count with both bar chart and map view.
+ 
+ 
+
+
+To further enhance fraud intelligence, implement a Device Fraud Footprint module that analyzes how frauds are distributed across different device types such as mobile, web, ATM, and more.
+This module should be added to Tab 3: Dashboard as a new subsection or optionally placed in a new tab.
+Objectives:
+Device-Type Fraud Distribution
+•	Visualize the percentage of frauds originating from each device type using a pie chart.
+•	Include labels like Mobile App, Web Banking, ATM, etc.
+•	Dynamically update based on the selected region.
+
+Gemini-Powered Device Risk Summary
+•	Use Gemini to generate a short, structured paragraph summarizing:
+•	Which devices are most exploited
+•	What patterns or times they are most vulnerable
+•	Any suggested mitigations
+•	This summary can be displayed below the visualizations or saved to output/device_policy_suggestions.txt.
+
+Outputs:
+output/device_pie_chart.png – Pie chart image (optional export)
+output/device_policy_suggestions.txt – (optional) Gemini-generated summary
+
